@@ -1,0 +1,76 @@
+name: Update TF Module
+
+on:
+  workflow_dispatch:
+    inputs:
+      versionName:
+        description: 'Name of version  (ie 7.5.0)'
+        required: true
+
+jobs:
+  update_tf_module:
+    name: Update TF Module
+    runs-on: ubuntu-latest
+    steps:
+    
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Checkout Public TF Module
+        uses: actions/checkout@v2
+        with:
+          repository: terraform-google-modules/terraform-google-iam
+          path: _tmp
+          ref: refs/tags/v${{ github.event.inputs.versionName }}
+      
+      - name: Initialize mandatory git config
+        run: |
+          git config user.name "$(git log -n 1 --pretty=format:%an)"
+          git config user.email "$(git log -n 1 --pretty=format:%ae)"
+
+      - name: Update Local Module
+        id: update-local-module
+        run: |
+          git checkout tags/v${{ github.event.inputs.versionName }} -b release/v${{ github.event.inputs.versionName }}
+          cp -ar examples $GITHUB_WORKSPACE/
+          cp -ar modules $GITHUB_WORKSPACE/
+          cp -a metadata.yaml $GITHUB_WORKSPACE/
+        working-directory: _tmp
+
+      - name: Cleaning _tmp
+        run: rm -rf _tmp
+
+      - name: Create Release Branch
+        run: git checkout -b release/v${{ github.event.inputs.versionName }}
+
+      - name: Commit Changes
+        id: make-commit
+        run: |
+          git add * && git commit -am "Update of TF Module version ${{ github.event.inputs.versionName }}"
+          echo "commit=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Push Release Branch
+        run: git push --force origin release/v${{ github.event.inputs.versionName }}
+
+      - name: Create Tag 
+        run: |
+          git tag -a v${{ github.event.inputs.versionName }} -m "Release of version v${{ github.event.inputs.versionName }}"
+
+      - name: Push Tag 
+        run: |
+          git push --force --tags
+
+      - name: Publish Release
+        env: 
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        run: |
+          gh release create v${{ github.event.inputs.versionName }} --generate-notes
+
+      - name: Open PR
+        env: 
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        run: |
+          PR_URL="$(gh pr create --title "Release of GitGub Runner version ${{ github.event.inputs.versionName }}" --fill --base main --head release/v${{ github.event.inputs.versionName }})"
+
+      
+
