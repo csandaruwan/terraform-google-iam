@@ -62,13 +62,13 @@ jobs:
 
       - name: Publish Release
         env: 
-          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_ACTION_TOKEN }}
         run: |
           gh release create v${{ github.event.inputs.versionName }} --generate-notes
 
       - name: Open PR
         env: 
-          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_ACTION_TOKEN }}
         run: |
           PR_URL="$(gh pr create --title "Release of GitGub Runner version ${{ github.event.inputs.versionName }}" --fill --base main --head release/v${{ github.event.inputs.versionName }})"
 
